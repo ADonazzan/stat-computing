@@ -14,7 +14,7 @@ class DataType(StrEnum):
     DATETIME = auto()
     UUID = auto()
 
-NA_STRINGS = ("", "na", "n/a", "null", "none", "nan", ".")
+NA_STRINGS = frozenset(["", "na", "n/a", "null", "none", "nan", "."])
 NUMERIC = [DataType.INT64, DataType.FLOAT64]
 
 INT_RE = re.compile(r"[+-]?\d+")
