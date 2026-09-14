@@ -17,7 +17,7 @@ class DataFrame:
     @classmethod
     def from_columns (cls, cols: dict[str, Column]):
         columns = tuple(cols.values())
-        colnames = {name: i for i, name in enumerate(cols)}
+        colnames = {name: i for i, name in enumerate(cols)} # option for missing col names
         schema = tuple(c.data_type for c in columns)
         nrows = len(columns[0]) if columns else 0
         df = cls(columns, colnames, schema, (len(columns), nrows), tuple({} for _ in columns))

@@ -50,3 +50,4 @@ bit offset added for column slicing: once I slice I copy is_valid and tell where
 
 ### Questions
 - Tests? 
+lookup github tree
