@@ -42,5 +42,11 @@ record Column
 
 bit offset added for column slicing: once I slice I copy is_valid and tell where to start looking for new first valid value.
 
+*Missing*: 
+- offsets implementation for strings: for now it will break
+- repr function does not return the nones and offsets
+
+
+
 ### Questions
 - Tests? 

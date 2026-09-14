@@ -82,9 +82,10 @@ if __name__ == "__main__":
     col = Column.from_list((1,2,3,4,5), data_type=DataType.INT64)
     print(col)
 
-    col = Column.from_list([None, 128, 420321, None, -1, 482])
+    col = Column.from_list([None, 128, 420321, None, -1, 482], data_type=DataType.INT64)
     print(col.is_valid)
     print([col[i] for i in range(6)])
+    print(col)
 
     vals = [None if i % 3 == 0 else i for i in range(20)]
     col = Column.from_list(vals, data_type=DataType.INT64)
