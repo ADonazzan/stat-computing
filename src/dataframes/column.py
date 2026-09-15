@@ -1,6 +1,6 @@
 import numpy as np
 
-from dtypes import DataType
+from dataframes.dtypes import DataType, guess
 
 class Column:
     def __init__(self, values, data_type: DataType | None = None, n=None, is_valid=None, offsets=None, bit_offset=0):
@@ -24,6 +24,9 @@ class Column:
     def from_list(cls, values, data_type=None):
         if data_type is DataType.STRING:
             raise NotImplementedError("string columns need the offsets path")
+        values = list(values)
+        if data_type is None:
+            data_type = guess(values)
         vals, valid = cls.split_validity(values)
         return cls(vals, data_type=data_type, is_valid=valid, n=len(values))
 

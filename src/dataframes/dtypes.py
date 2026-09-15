@@ -1,7 +1,6 @@
 import re
 
 from enum import StrEnum, auto
-from typing import Any
 
 class DataType(StrEnum):
     BOOLEAN = auto()
@@ -69,9 +68,12 @@ def join(a: DataType, b: DataType) -> DataType:
     return DataType.STRING  
 
 
-def guess(values: list[str]) -> DataType | None:
+def guess(values: list) -> DataType | None:
     seen = None
-    for s in values:
+    for v in values:
+        if v is None:
+            continue
+        s = str(v)
         if is_missing(s):
             continue
         t = infer(s)

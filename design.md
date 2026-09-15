@@ -44,10 +44,9 @@ bit offset added for column slicing: once I slice I copy is_valid and tell where
 
 *Missing*: 
 - offsets implementation for strings: for now it will break
+- str() on every element for type guessing: use python types
 - repr function does not return the nones and offsets
 
 
 
 ### Questions
-- Tests? 
-lookup github tree
