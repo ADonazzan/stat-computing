@@ -161,6 +161,17 @@ class DataFrame:
             raise IndexError(f"Column index '{col_idx}' out of bounds.")
         return list(self._colnames.keys())[col_idx]
 
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.get_col(key)
+        if isinstance(key, int):
+            return self.get_col(key)
+        if isinstance(key, slice):
+            start = key.start or 0
+            stop = key.stop or self._dims[1]
+            return self.slice(start, stop)
+        raise TypeError(f"Invalid key type: {type(key)}")
+
     @staticmethod
     def fill_col(value, length: int, data_type: DataType | None = None) -> Column:
         return Column.from_list([value] * length, data_type=data_type)

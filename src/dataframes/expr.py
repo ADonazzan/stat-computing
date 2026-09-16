@@ -42,7 +42,7 @@ class ConstantExpression(ColumnExpression):
         return str(self.const)
 
     def evaluate(self, df=None):
-        return self.const
+        return self.const, True
 
 
 class NamedColumnExpression(ColumnExpression):
@@ -53,7 +53,8 @@ class NamedColumnExpression(ColumnExpression):
         return str(self.name)
 
     def evaluate(self, df=None):
-        return df[self.name]
+        col = df[self.name]
+        return col.array, col._valid_mask()
 
 class BinaryOpExpression(ColumnExpression):
     def __init__(self, op, c1, c2):
@@ -65,21 +66,18 @@ class BinaryOpExpression(ColumnExpression):
         return f"({self.c1.render()} {op_lookup[self.op]} {self.c2.render()})"
 
     def evaluate(self, df=None):
-        left = evaluate(df, self.c1)
-        right = evaluate(df, self.c2)
-
-        left = np.asarray(left)
-        right = np.asarray(right)
-
+        lv, lm = evaluate(df, self.c1)
+        rv, rm = evaluate(df, self.c2)
+        lv, rv = np.asarray(lv), np.asarray(rv)
         try:
-            result = op_functions[self.op](left, right)
-        except ValueError as e:
-            if left.size != right.size:
-                raise ValueError(f"Columns have different lenght: {self.c1.render()} = {left.size}, {self.c2.render()} = {right.size}")
-            else:
-                raise ValueError(e)
-            
-        return result
+            result = op_functions[self.op](lv, rv)
+        except ValueError:
+            if lv.size != rv.size:
+                raise ValueError(
+                    f"Columns have different lengths: "
+                    f"{self.c1.render()} = {lv.size}, {self.c2.render()} = {rv.size}")
+            raise
+        return result, lm & rm
 
 class ObjectExpression(ColumnExpression):
     def __init__(self, value):
@@ -95,7 +93,7 @@ class ObjectExpression(ColumnExpression):
         return str(self.value)
 
     def evaluate(self, df=None):
-        return self.value
+        return self.value, True
 
 class FunCallExpression(ColumnExpression):
     def __init__(self, fn, *args: ColumnExpression):
@@ -108,8 +106,12 @@ class FunCallExpression(ColumnExpression):
         return f"{self.fn.__name__}({inner})"
 
     def evaluate(self, df=None):
-        arguments = [evaluate(df, arg) for arg in self.args]
-        return self.fn(*arguments)
+        pairs = [evaluate(df, arg) for arg in self.args]
+        values = [v for v, _ in pairs]
+        mask = True
+        for _, m in pairs:
+            mask = mask & m
+        return self.fn(*values), mask
 
 
 def as_expression(value: Any) -> ColumnExpression:

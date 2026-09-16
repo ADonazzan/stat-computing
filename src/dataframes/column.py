@@ -156,6 +156,10 @@ class Column:
         return Column(vals, data_type=self.data_type, n=self.n,
                     is_valid=valid, bit_offset=self.bit_offset)
 
+    @property
+    def array(self) -> np.ndarray:
+        return self.values
+
 
 if __name__ == "__main__":
     col = Column.from_list((1,2,3,4,5), data_type=DataType.INT64)
