@@ -20,13 +20,29 @@ class Column:
         clean = [0 if v is None else v for v in values]
         return (np.asarray(clean), packed_mask)
 
+    @staticmethod
+    def build_strings(values: list[str|None]):
+        """(byte buffer, packed mask, offsets of length n+1)"""
+        mask = np.array([v is not None for v in values], dtype=bool)
+        buf = bytearray()
+        offsets = [0]
+        for v in values:
+            if v is not None:
+                buf.extend(str(v).encode("utf-8"))
+            offsets.append(len(buf))
+        return (np.frombuffer(bytes(buf), dtype=np.uint8),
+                np.packbits(mask, bitorder="little"),
+                np.asarray(offsets, dtype=np.int64))
+
     @classmethod
     def from_list(cls, values, data_type=None):
-        if data_type is DataType.STRING:
-            raise NotImplementedError("string columns need the offsets path")
         values = list(values)
         if data_type is None:
             data_type = guess(values)
+        if data_type is DataType.STRING:
+            vals, valid, offsets = cls.build_strings(values)
+            return cls(vals, data_type=data_type, is_valid=valid,
+                    offsets=offsets, n=len(values))
         vals, valid = cls.split_validity(values)
         return cls(vals, data_type=data_type, is_valid=valid, n=len(values))
 
@@ -51,32 +67,40 @@ class Column:
             return None
         if self.offsets is None:
             return self.values[key]
-        return self.values[self.offsets[key]:self.offsets[key+1]]
+        return self.values[self.offsets[key]:self.offsets[key+1]].tobytes().decode("utf-8")
 
     def __repr__(self):
         length = self.__len__()
         header = f"Column (len = {length}, dtype = {self.data_type}): "
-        body = str(self.values)
+        shown = [self[i] for i in range(min(self.n, 10))]
+        body = ", ".join("None" if v is None else repr(v) for v in shown)
+        if self.n > 10:
+            body += ", …"
         return header + body
 
     def __len__(self):
         return self.n
 
-    def slice(self, start: int, stop: int):
+    def slice(self, start: int|None=None, stop: int|None=None):
         '''
             Return sliced column, adjusting bit offset and validity mask for sliced data
-        '''
-        if self.offsets is not None:
-            raise NotImplementedError
-        start = max(0, min(start, self.n))
-        stop = max(start, min(stop, self.n))
-
+        '''       
+        start = max(0, min(start, self.n)) if start is not None else 0
+        stop = max(start, min(stop, self.n)) if stop is not None else self.n
+        
         if self.is_valid is None:
             new_valid, new_bit_offset = None, 0
         else:
             abs_bit = self.bit_offset + start
             new_valid = self.is_valid[abs_bit // 8 :] # drop whole bytes we don't need, and adjust bit offset
             new_bit_offset = abs_bit % 8
+
+        if self.offsets is not None:
+            new_offsets = self.offsets[start:stop+1] - self.offsets[start]
+            lo, hi = self.offsets[start], self.offsets[stop]
+            return Column(self.values[lo:hi], data_type=self.data_type,
+                        n=stop-start, is_valid=new_valid, offsets=new_offsets,
+                        bit_offset=new_bit_offset)
 
         return Column(self.values[start:stop], data_type=self.data_type, n=stop-start, is_valid=new_valid, bit_offset=new_bit_offset)
 
