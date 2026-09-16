@@ -10,9 +10,9 @@ from dataframes.dtypes import DataType, guess
 class DataFrame:
     columns: tuple[Column, ...]
     _colnames: dict[str, int]
-    schema: list[DataType | None]
+    schema: tuple[DataType | None, ...]
     _dims: tuple[int, int]
-    metadata: list[dict[str, Any]]
+    metadata: tuple[dict[str, Any], ...]
 
     @classmethod
     def _make(cls, columns, colnames, schema, metadata) -> "DataFrame":
@@ -46,7 +46,7 @@ class DataFrame:
         
     def validate(self) -> None:
         len_cols = [len(col) for col in self.columns]
-        if len(set(len_cols)) != 1:
+        if self.columns and len(set(len_cols)) != 1:
             raise ValueError("All columns must have the same number of rows.")
         if self._dims != (len(self.columns), len_cols[0]):
             raise ValueError("dims out of sync with columns")
@@ -121,15 +121,28 @@ class DataFrame:
 
     def retype_col(self, name: str, t: DataType):
         idx = self._colnames[name]
-        for value in self.columns[idx].values:
-            if value is not None and not isinstance(value, t):
-                raise ValueError(f"Cannot retype column {name} to {t}, value {value} is incompatible")
-            
+        old = self.columns[idx]
+        strings = [None if old[i] is None else str(old[i]) for i in range(len(old))]
+        new_col = Column.from_strings(strings, data_type=t, on_fail="raise")
+        columns = self.columns[:idx] + (new_col,) + self.columns[idx+1:]
+        schema  = self.schema[:idx]  + (t,) + self.schema[idx+1:]
+        return replace(self, columns=columns, schema=schema)
 
-        self.schema[idx] = t
+    def slice(self, start: int|None=None, stop: int|None=None) -> "DataFrame":
+        """Zero-copy: every Column.slice returns views."""
+        nrows = self._dims[1]
+        start = max(0, min(start, nrows)) if start is not None else 0
+        stop  = max(start, min(stop, nrows)) if stop is not None else nrows
+        columns = tuple(c.slice(start, stop) for c in self.columns)
+        return replace(self, columns=columns, _dims=(len(columns), stop - start))
 
-
-
+    def set_value(self, col, row: int, value) -> "DataFrame":
+        i = self._colnames[col] if isinstance(col, str) else col
+        if not 0 <= i < len(self.columns):
+            raise IndexError(f"Column {col!r} out of bounds")
+        new_col = self.columns[i].with_value(row, value)
+        columns = self.columns[:i] + (new_col,) + self.columns[i+1:]
+        return replace(self, columns=columns)
 
     def dims(self):
         return self._dims
@@ -140,7 +153,7 @@ class DataFrame:
     def col_idxs(self, col_names: list[str]) -> list[int]:
         for name in col_names:
             if name not in self._colnames:
-                raise ValueError(f"Column name '{name}' not found in DataFrame.")
+                raise KeyError(f"Column name '{name}' not found in DataFrame.")
         return [self._colnames[name] for name in col_names]
 
     def col_name(self, col_idx: int) -> str:

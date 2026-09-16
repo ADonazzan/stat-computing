@@ -138,3 +138,38 @@ def test_validity_mask_matches(missing):
     col = missing.get_col("x")
     expected = [i % 3 != 0 for i in range(20)]
     assert list(col._valid_mask()) == expected
+
+def test_set_value_roundtrip_and_immutability():
+    df = DataFrame.from_columns({
+        "a": Column.from_list([1, None, 3]),
+        "b": Column.from_list([10, 20, 30]),
+    })
+    df2 = df.set_value("a", 1, 42)
+
+    assert df2.get_value("a", 1) == 42
+    assert df.get_value("a", 1) is None      # original frame unchanged
+    assert df2.columns[1] is df.columns[1]   # untouched column is shared
+
+
+def test_slice_zero_copy(simple):
+    sub = simple.slice(1, 4)
+    assert sub.dims() == (3, 3)
+    assert sub.get_value("a", 0) == 2
+
+def test_set_value_leaves_original(simple):
+    df2 = simple.set_value("a", 2, 99)
+    assert simple.get_value("a", 2) == 3 and df2.get_value("a", 2) == 99
+
+def test_set_value_type_mismatch_raises(simple):
+    with pytest.raises(ValueError):
+        simple.set_value("a", 0, "hello")
+
+def test_retype_int_to_string(simple):
+    df2 = simple.retype_col("a", DataType.STRING)
+    assert df2.schema[0] is DataType.STRING
+    assert df2.get_value("a", 0) == "1"
+
+def test_retype_string_to_int():
+    df = DataFrame.from_columns({"x": Column.from_list(["1", "2", "3"])})
+    df2 = df.retype_col("x", DataType.INT64)
+    assert df2.get_value("x", 0) == 1

@@ -1,6 +1,13 @@
 import numpy as np
 
-from dataframes.dtypes import DataType, guess
+from dataframes.dtypes import DataType, guess, parse_int, parse_float, parse_bool, is_missing
+
+PARSERS = {
+    DataType.INT64:   parse_int,
+    DataType.FLOAT64: parse_float,
+    DataType.BOOLEAN: parse_bool,
+    DataType.STRING:  lambda s: s,
+}
 
 class Column:
     def __init__(self, values, data_type: DataType | None = None, n=None, is_valid=None, offsets=None, bit_offset=0):
@@ -36,15 +43,37 @@ class Column:
 
     @classmethod
     def from_list(cls, values, data_type=None):
-        values = list(values)
         if data_type is None:
             data_type = guess(values)
+        values = list(values)
         if data_type is DataType.STRING:
             vals, valid, offsets = cls.build_strings(values)
             return cls(vals, data_type=data_type, is_valid=valid,
                     offsets=offsets, n=len(values))
         vals, valid = cls.split_validity(values)
         return cls(vals, data_type=data_type, is_valid=valid, n=len(values))
+
+    @classmethod
+    def from_strings(cls, strings, data_type=None, on_fail="degrade"):
+        """Build a column from raw text. Infers the type if not given."""
+        if data_type is None:
+            data_type = guess(strings)
+        if data_type is None:                       # column entirely missing
+            return cls.from_list([None] * len(strings), data_type=DataType.STRING)
+
+        parser = PARSERS[data_type]
+        typed = []
+        for s in strings:
+            if s is None or is_missing(s):
+                typed.append(None)
+                continue
+            v = parser(s)
+            if v is None:
+                if on_fail == "degrade":
+                    return cls.from_list(list(strings), data_type=DataType.STRING)
+                raise ValueError(f"{s!r} does not parse as {data_type}")
+            typed.append(v)
+        return cls.from_list(typed, data_type=data_type)
 
     def _valid_at(self, key:int) -> bool:
         if self.is_valid is None:
@@ -103,6 +132,29 @@ class Column:
                         bit_offset=new_bit_offset)
 
         return Column(self.values[start:stop], data_type=self.data_type, n=stop-start, is_valid=new_valid, bit_offset=new_bit_offset)
+
+    def with_value(self, i: int, value) -> "Column":
+        """New Column with element i set. Copies this column's buffers."""
+        if not 0 <= i < self.n:
+            raise IndexError(f"Row {i} out of bounds")
+        if self.offsets is not None:
+            raise NotImplementedError("string columns need the rebuild path")
+
+        vals = self.values.copy()
+        if value is not None:
+            vals[i] = value
+
+        valid = None if self.is_valid is None else self.is_valid.copy()
+        # adjust validity mask: if value is None, set bit to 0; else set bit to 1
+        if valid is not None:
+            j = i + self.bit_offset
+            bit = np.uint8(1 << (j % 8))
+            if value is None:
+                valid[j // 8] &= ~bit
+            else:
+                valid[j // 8] |= bit
+        return Column(vals, data_type=self.data_type, n=self.n,
+                    is_valid=valid, bit_offset=self.bit_offset)
 
 
 if __name__ == "__main__":

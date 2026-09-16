@@ -63,3 +63,15 @@ def test_guess_data_type():
 
     col_bool = Column.from_list((True, False, True))
     assert col_bool.data_type == DataType.BOOLEAN
+
+
+def test_with_value_fills_missing():
+    col = Column.from_list([1, None, 3])
+    new = col.with_value(1, 42)
+    assert new[1] == 42
+    assert col[1] is None
+
+def test_with_value_leaves_neighbours_alone():
+    col = Column.from_list(list(range(10)))
+    new = col.with_value(3, None)
+    assert [new[i] for i in range(10)] == [0, 1, 2, None, 4, 5, 6, 7, 8, 9]
