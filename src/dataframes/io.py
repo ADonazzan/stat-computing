@@ -1,15 +1,7 @@
 import polars as pl
 
 from dataframes.column import Column
-from dataframes.dtypes import DataType, guess, is_missing, parse_int, parse_float, parse_bool
 from dataframes.frame import DataFrame
-
-PARSERS = {
-    DataType.INT64:   parse_int,
-    DataType.FLOAT64: parse_float,
-    DataType.BOOLEAN: parse_bool,
-    DataType.STRING:  lambda s: s,
-}
 
 
 def _dedupe(names: list[str]) -> list[str]:
@@ -25,8 +17,7 @@ def _dedupe(names: list[str]) -> list[str]:
 
 
 def read_csv(path, header: bool = True, skip: int = 0) -> DataFrame:
-    raw = pl.read_csv(path, schema_overrides=pl.String,
-                      has_header=False, skip_rows=skip)
+    raw = pl.read_csv(path, infer_schema=False, has_header=False, skip_rows=skip)
     rows = raw.rows()
     if header:
         names, rows = _dedupe([str(x) for x in rows[0]]), rows[1:]
