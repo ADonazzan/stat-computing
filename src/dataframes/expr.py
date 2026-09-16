@@ -9,9 +9,10 @@ from typing import Any
 class Op(StrEnum):
     PLUS = auto()
     TIMES = auto()
+    EQ = auto()
 
-op_lookup = {Op.PLUS: "+", Op.TIMES: "*"}
-op_functions = {Op.PLUS: operator.add, Op.TIMES: operator.mul}
+op_lookup = {Op.PLUS: "+", Op.TIMES: "*", Op.EQ: "=="}
+op_functions = {Op.PLUS: operator.add, Op.TIMES: operator.mul, Op.EQ: operator.eq}
 
 class ColumnExpression(ABC):
     @abstractmethod
@@ -33,6 +34,9 @@ class ColumnExpression(ABC):
     def __rmul__ (self, other):
         return BinaryOpExpression(Op.TIMES, as_expression(other), self)
 
+    def __eq__(self, other):
+        return BinaryOpExpression(Op.EQ, self, as_expression(other))
+    
 
 class ConstantExpression(ColumnExpression):
     def __init__(self, const:int|float):

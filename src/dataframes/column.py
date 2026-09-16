@@ -71,9 +71,19 @@ class Column:
             if v is None:
                 if on_fail == "degrade":
                     return cls.from_list(list(strings), data_type=DataType.STRING)
-                raise ValueError(f"{s!r} does not parse as {data_type}")
+                raise ValueError(f"{s} does not parse as {data_type}")
             typed.append(v)
         return cls.from_list(typed, data_type=data_type)
+
+    @classmethod
+    def from_arrays(cls, values, mask, n: int) -> "Column":
+        """Build from a values array plus a boolean mask (for pipelines)."""
+        values = np.asarray(values)
+        if values.ndim == 0:                      # constant expression
+            values = np.full(n, values)
+        mask = np.asarray(mask) if not isinstance(mask, bool) else np.full(n, mask)
+        return cls(values, data_type=guess(values), n=n,
+                is_valid=np.packbits(mask, bitorder="little"))
 
     def _valid_at(self, key:int) -> bool:
         if self.is_valid is None:
@@ -158,7 +168,20 @@ class Column:
 
     @property
     def array(self) -> np.ndarray:
-        return self.values
+        if self.offsets is None:
+            return self.values
+        return np.array([self[i] for i in range(self.n)], dtype=object)
+
+    def take(self, idx: np.ndarray) -> "Column":
+        """Gather rows by integer index"""
+        if self.offsets is not None:
+            vals = [self[i] for i in idx]
+            return Column.from_list(vals, data_type=self.data_type)
+        mask = self._valid_mask()[idx]
+        return Column(self.values[idx], data_type=self.data_type, n=len(idx),
+                    is_valid=np.packbits(mask, bitorder="little"))
+
+    
 
 
 if __name__ == "__main__":
