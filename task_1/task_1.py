@@ -20,12 +20,12 @@ flights = flights.with_columns(
             )
 
 city_summary = flights.group_by(["origin", "dest"]).agg(
-                    pl.len().alias("total_flights"),
-                    pl.col("dep_delay").filter(pl.col("dep_delay") >= 15).median().alias("median_dep_delay"), # mean delay once the flight is late (15 minutes as per FAA)
-                    (pl.col("dep_delay") >= 15).mean().alias("perc_dep_delays"), # fraction of flights that left more than 15 minutes late 
-                    (pl.col("dep_delay") >= 15).mean().alias("perc_arr_delays"), # fraction of flights that arrived more than 15 minutes late
-                    (pl.col("status").is_in([1,2])).mean().alias("cancelled/diverted flights") # fraction of flights that were cancelled or diverted
-                ).sort("total_flights", descending=True)
+    pl.len().alias("total_flights"),
+    pl.col("dep_delay").filter(pl.col("dep_delay") >= 15).median().alias("median_dep_delay"),  # median delay among late departures (15+ min, FAA)
+    (pl.col("dep_delay") >= 15).mean().alias("perc_dep_delays"),   # share departing 15+ min late
+    (pl.col("arr_delay") >= 15).mean().alias("perc_arr_delays"),   # share arriving 15+ min late
+    pl.col("status").is_in([1, 2]).mean().alias("perc_cancelled_diverted"),
+).sort("total_flights", descending=True)
 
 # Selecting Philadelphia and Chicago
 PHL = ["PHL"]
@@ -44,14 +44,13 @@ phl_chi = flights.filter(
 
 # red-eye flights: leaving after 9pm and arriving before 7am, crossing midnight
 flights = flights.with_columns(
-    ((pl.col("sched_dep_time") >= 2100) & (pl.col("sched_arr_time") < 700)
-        & (pl.col("sched_arr_time") < pl.col("sched_dep_time"))).alias("red_eye")
+    ((pl.col("sched_dep_time") >= 2100) & (pl.col("sched_arr_time") < 700)).alias("red_eye")
 )
-
 # delay severity
 severity = pl.Enum(["none", "minor", "major"])
 flights = flights.with_columns(
-    pl.when(pl.col("arr_delay") < 15).then(pl.lit("none"))     # on-time according to FAA
+    pl.when(pl.col("arr_delay").is_null()).then(pl.lit(None))   # cancelled/diverted: no arrival delay
+      .when(pl.col("arr_delay") < 15).then(pl.lit("none"))
       .when(pl.col("arr_delay") < 60).then(pl.lit("minor"))
       .otherwise(pl.lit("major"))
       .cast(severity)
@@ -124,24 +123,34 @@ flights = pl.read_csv(path_flights, infer_schema_length=10000, null_values=["NA"
 airports_info = pl.read_csv("data/pa-flights/airports.csv", null_values=["NA", ""])
 weather = pl.read_csv("data/pa-flights/weather.csv",  null_values=["NA", ""]).filter(pl.col("origin") == "PIT")
 
-# To account for severe weather, I take the extreme events for each weather type using quantiles
 weather = weather.with_columns(
-    (pl.col("precip") >= pl.col("precip").quantile(0.95)).alias("severe_precip"),
+    (pl.col("precip") >= pl.col("precip").filter(pl.col("precip") > 0).quantile(0.9)).alias("severe_precip"),  # top 10% of wet hours
     (pl.col("wind_gust") >= pl.col("wind_gust").quantile(0.95)).alias("severe_gust"),
-    (pl.col("visib") <= pl.col("visib").quantile(0.05)).alias("low_vis")
+    (pl.col("visib") <= pl.col("visib").quantile(0.05)).alias("low_vis"),
+).with_columns(
+    pl.col(["severe_precip", "severe_gust", "low_vis"]).fill_null(False)
 ).select(["origin", "year", "month", "day", "hour", "severe_precip", "severe_gust", "low_vis"])
 
-pit_west = (flights.filter(pl.col("origin") == "PIT"
-    ).join(airports_info, left_on="dest", right_on="faa", how="left"
-    ).filter(pl.col("lon") < -100
-    ).join(weather, on=["origin", "year", "month", "day", "hour"], how="left")
+
+late_arr = (pl.col("arr_delay") >= 15).fill_null(True)   # cancelled or diverted counts as a bad outcome
+late_dep = (pl.col("dep_delay") >= 15).fill_null(True)   # isolates PIT-side conditions better
+
+pit_west = (
+    flights.filter(pl.col("origin") == "PIT")
+    .join(airports_info, left_on="dest", right_on="faa", how="left")
+    .filter(pl.col("lon") < -100)
+    .join(weather, on=["origin", "year", "month", "day", "hour"], how="left")
     .group_by("month").agg(
         pl.len().alias("n"),
-        (pl.col("arr_delay") >= 15).mean().alias("frac_delays"),
-        (pl.col("arr_delay") >= 15).filter(pl.col("severe_precip")).mean().alias("frac_delays_precip"),
-        (pl.col("arr_delay") >= 15).filter(pl.col("severe_gust")).mean().alias("frac_delays_gust"),
-        (pl.col("arr_delay") >= 15).filter(pl.col("low_vis")).mean().alias("frac_delays_vis"),
+        pl.col("arr_delay").is_null().mean().alias("frac_cancel_divert"),
+        late_arr.mean().alias("frac_bad_arr"),
+        late_dep.mean().alias("frac_bad_dep"),
+        late_dep.filter(pl.col("severe_precip")).mean().alias("frac_bad_dep_precip"),
+        late_dep.filter(pl.col("severe_gust")).mean().alias("frac_bad_dep_gust"),
+        late_dep.filter(pl.col("low_vis")).mean().alias("frac_bad_dep_vis"),
         pl.col("severe_precip").sum().alias("n_precip"),
         pl.col("severe_gust").sum().alias("n_gust"),
         pl.col("low_vis").sum().alias("n_vis"),
-    ).sort("month"))
+    )
+    .sort("month")
+)
