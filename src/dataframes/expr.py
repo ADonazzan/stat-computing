@@ -69,6 +69,14 @@ class ColumnExpression(ABC):
     def __str__(self):
         return self.render()
 
+    def cols_used(self) -> set[str]:
+        """Columns this expression reads."""
+        return set()
+
+    def is_rowwise(self) -> bool:
+        """Row i of the result depends only on row i of the input."""
+        return True
+
     def _binary(self, op, other):
         return BinaryOpExpression(op, self, as_expression(other))
 
@@ -176,6 +184,9 @@ class NamedColumnExpression(ColumnExpression):
         col = df[self.name]
         return col.array, col._valid_mask()
 
+    def cols_used(self) -> set[str]:
+        return {self.name}
+
 class BinaryOpExpression(ColumnExpression):
     def __init__(self, op, c1, c2):
         self.op = op
@@ -198,6 +209,12 @@ class BinaryOpExpression(ColumnExpression):
                     f"{self.c1.render()} = {lv.size}, {self.c2.render()} = {rv.size}")
             raise
         return result, lm & rm
+
+    def cols_used(self) -> set[str]:
+        return self.c1.cols_used() | self.c2.cols_used()
+
+    def is_rowwise(self) -> bool:
+        return self.c1.is_rowwise() and self.c2.is_rowwise()
 
 class ObjectExpression(ColumnExpression):
     def __init__(self, value):
@@ -233,6 +250,13 @@ class FunCallExpression(ColumnExpression):
             mask = mask & m
         return self.fn(*values), mask
 
+    def cols_used(self) -> set[str]:
+        return set().union(*(a.cols_used() for a in self.args))
+
+    def is_rowwise(self) -> bool:
+        fn_ok = isinstance(self.fn, np.ufunc) or getattr(self.fn, "rowwise", False)
+        return fn_ok and all(a.is_rowwise() for a in self.args)
+
 
 def as_expression(value: Any) -> ColumnExpression:
     if isinstance(value, ColumnExpression):
@@ -252,6 +276,11 @@ def c(name: str) -> ColumnExpression:
 
 def call(func, *args):
     return FunCallExpression(func, *[as_expression(a) for a in args])
+
+def rowwise(fn):
+    """Mark a user function as acting entrywise, so the optimizer may push filters past it."""
+    fn.rowwise = True
+    return fn
 
 def evaluate(df, expr):
     return expr.evaluate(df)

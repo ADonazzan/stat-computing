@@ -52,14 +52,13 @@ class DataFramePipeline:
         return df
 
     
-    def optimize(self, *, predicates: bool = True, projections: bool = True) -> "DataFramePipeline":
-        from dataframes.optimize import push_predicates, push_projections
-        steps = list(self.steps)
+    def optimize(self, predicates: bool = True, projections: bool = True) -> "DataFramePipeline":
+        from dataframes.optimize import push_down, FILTERS, PROJECTIONS
+        steps = self.steps
         if predicates:
-            steps = push_predicates(steps)
+            steps = push_down(steps, FILTERS)
         if projections:
-            cols = self.source.colnames() if self.source is not None else None
-            steps = push_projections(steps, cols)
+            steps = push_down(steps, PROJECTIONS)
         return replace(self, steps=tuple(steps))
 
     @staticmethod
@@ -155,5 +154,6 @@ EXECUTORS = {
     "remove":       _exec_remove,
     "derive":       _exec_derive,
     "groupby":      _exec_groupby,
+    "ungroup":      _exec_ungroup,
     "aggregate":    _exec_aggregate
 }
