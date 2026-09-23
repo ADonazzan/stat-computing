@@ -11,8 +11,55 @@ class Op(StrEnum):
     TIMES = auto()
     EQ = auto()
 
-op_lookup = {Op.PLUS: "+", Op.TIMES: "*", Op.EQ: "=="}
-op_functions = {Op.PLUS: operator.add, Op.TIMES: operator.mul, Op.EQ: operator.eq}
+class Op(StrEnum):
+    PLUS = auto()
+    MINUS = auto()
+    TIMES = auto()
+    DIV = auto()
+    POW = auto()
+
+    EQ = auto()
+    NE = auto()
+    LT = auto()
+    LE = auto()
+    GT = auto()
+    GE = auto()
+
+    AND = auto()
+    OR = auto()
+
+
+op_lookup = {
+    Op.PLUS: "+",
+    Op.MINUS: "-",
+    Op.TIMES: "*",
+    Op.DIV: "/",
+    Op.POW: "**",
+    Op.EQ: "==",
+    Op.NE: "!=",
+    Op.LT: "<",
+    Op.LE: "<=",
+    Op.GT: ">",
+    Op.GE: ">=",
+    Op.AND: "&",
+    Op.OR: "|",
+}
+
+op_functions = {
+    Op.PLUS: operator.add,
+    Op.MINUS: operator.sub,
+    Op.TIMES: operator.mul,
+    Op.DIV: operator.truediv,
+    Op.POW: operator.pow,
+    Op.EQ: operator.eq,
+    Op.NE: operator.ne,
+    Op.LT: operator.lt,
+    Op.LE: operator.le,
+    Op.GT: operator.gt,
+    Op.GE: operator.ge,
+    Op.AND: np.logical_and,
+    Op.OR: np.logical_or,
+}
 
 class ColumnExpression(ABC):
     @abstractmethod
@@ -22,22 +69,91 @@ class ColumnExpression(ABC):
     def __str__(self):
         return self.render()
 
-    def __add__(self, other: Any) -> "ColumnExpression":
-        return BinaryOpExpression(Op.PLUS, self, as_expression(other))
-    
+    def _binary(self, op, other):
+        return BinaryOpExpression(op, self, as_expression(other))
+
+    def _reverse_binary(self, op, other):
+        return BinaryOpExpression(op, as_expression(other), self)
+
+    def __add__(self, other):
+        return self._binary(Op.PLUS, other)
+
     def __radd__(self, other):
-        return BinaryOpExpression(Op.PLUS, as_expression(other), self)
+        return self._reverse_binary(Op.PLUS, other)
+
+    def __sub__(self, other):
+        return self._binary(Op.MINUS, other)
+
+    def __rsub__(self, other):
+        return self._reverse_binary(Op.MINUS, other)
 
     def __mul__(self, other):
-        return BinaryOpExpression(Op.TIMES, self, as_expression(other))
+        return self._binary(Op.TIMES, other)
 
-    def __rmul__ (self, other):
-        return BinaryOpExpression(Op.TIMES, as_expression(other), self)
+    def __rmul__(self, other):
+        return self._reverse_binary(Op.TIMES, other)
+
+    def __truediv__(self, other):
+        return self._binary(Op.DIV, other)
+
+    def __rtruediv__(self, other):
+        return self._reverse_binary(Op.DIV, other)
+
+    def __floordiv__(self, other):
+        return self._binary(Op.FLOOR_DIV, other)
+
+    def __rfloordiv__(self, other):
+        return self._reverse_binary(Op.FLOOR_DIV, other)
+
+    def __mod__(self, other):
+        return self._binary(Op.MOD, other)
+
+    def __rmod__(self, other):
+        return self._reverse_binary(Op.MOD, other)
+
+    def __pow__(self, other):
+        return self._binary(Op.POW, other)
+
+    def __rpow__(self, other):
+        return self._reverse_binary(Op.POW, other)
 
     def __eq__(self, other):
-        return BinaryOpExpression(Op.EQ, self, as_expression(other))
-    
+        return self._binary(Op.EQ, other)
 
+    def __ne__(self, other):
+        return self._binary(Op.NE, other)
+
+    def __lt__(self, other):
+        return self._binary(Op.LT, other)
+
+    def __le__(self, other):
+        return self._binary(Op.LE, other)
+
+    def __gt__(self, other):
+        return self._binary(Op.GT, other)
+
+    def __ge__(self, other):
+        return self._binary(Op.GE, other)
+
+    def __and__(self, other):
+        return self._binary(Op.AND, other)
+
+    def __rand__(self, other):
+        return self._reverse_binary(Op.AND, other)
+
+    def __or__(self, other):
+        return self._binary(Op.OR, other)
+
+    def __ror__(self, other):
+        return self._reverse_binary(Op.OR, other)
+
+    def __bool__(self):
+        raise TypeError(
+            "Column expressions have no single truth value. "
+            "Use &, |, and ~ with parentheses instead of and, or, and not."
+        )
+
+    
 class ConstantExpression(ColumnExpression):
     def __init__(self, const:int|float):
         self.const = const
@@ -142,13 +258,3 @@ def evaluate(df, expr):
 
 def optimize(expr):
     raise NotImplementedError
-    
-
-if __name__ == "__main__":
-    print(call(max, c("a"), 3, c("t")))
-    print(2 * c("a") + 3 * call(max, c("a"), 3, c("t")))
-
-    test_df = {"a": [1,2,3], "t": [2,3,4]}
-    print(evaluate(test_df, c("a") * c("t") + 3))
-
-# Optimization: constant folding

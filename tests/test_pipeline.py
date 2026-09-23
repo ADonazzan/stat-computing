@@ -1,6 +1,7 @@
 import pytest
+import statistics
 
-from dataframes import Column, c, DataFrame, select, exclude, keep, remove, derive
+from dataframes import Column, c, DataFrame, select, exclude, keep, remove, derive, groupBy, aggregate
 from dataframes.pipeline import DataFramePipeline
 
 
@@ -33,3 +34,18 @@ def test_full_pipeline(flights):
            ).execute()
     assert out.colnames() == ["carrier", "dep_delay", "distance", "km"]
     assert out.dims()[1] == 2
+
+def test_rename_rewrites_grouping(flights):
+    df = (flights >> groupBy("carrier")).execute()
+    df2 = df.rename_col("carrier", "airline")
+    assert df2.groups["keys"] == ("airline",)
+    assert df.groups["keys"] == ("carrier",)
+
+def test_groupby_then_aggregate(flights):
+    out = (flights >> groupBy("carrier")
+                   >> aggregate(avg=("dep_delay", statistics.mean))).execute()
+    assert out.dims()[1] == 3          # AA, DL, UA
+
+def test_keep_clears_groups(flights):
+    out = (flights >> groupBy("carrier") >> keep(c("distance") > 1200)).execute()
+    assert not out.groups

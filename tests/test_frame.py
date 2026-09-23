@@ -22,6 +22,8 @@ def missing():
     return DataFrame.from_columns({"x": Column.from_list(vals)})
 
 
+
+
 def test_from_columns_dims(simple):
     assert simple.dims() == (3, 5)
 

@@ -13,6 +13,7 @@ class DataFrame:
     schema: tuple[DataType | None, ...]
     _dims: tuple[int, int]
     metadata: tuple[dict[str, Any], ...]
+    groups: dict[str, Any]|None = None
 
     @classmethod
     def _make(cls, columns, colnames, schema, metadata) -> "DataFrame":
@@ -113,11 +114,17 @@ class DataFrame:
             raise KeyError(f"No column named {old}")
         if new in self._colnames:
             raise KeyError(f"Column name {new} already exists")
+
         idx = self._colnames[old]
         names = list(self._colnames.keys())
         names[idx] = new
         colnames = {name: i for i, name in enumerate(names)}
-        return replace(self, _colnames=colnames)
+
+        groups = self.groups
+        if groups:
+            groups = {**groups, "keys": tuple(new if k == old else k for k in groups["keys"])}
+
+        return replace(self, _colnames=colnames, groups=groups)
 
     def retype_col(self, name: str, t: DataType):
         idx = self._colnames[name]
@@ -134,7 +141,7 @@ class DataFrame:
         start = max(0, min(start, nrows)) if start is not None else 0
         stop  = max(start, min(stop, nrows)) if stop is not None else nrows
         columns = tuple(c.slice(start, stop) for c in self.columns)
-        return replace(self, columns=columns, _dims=(len(columns), stop - start))
+        return replace(self, columns=columns, _dims=(len(columns), stop - start), groups = {})
 
     def set_value(self, col, row: int, value) -> "DataFrame":
         i = self._colnames[col] if isinstance(col, str) else col
