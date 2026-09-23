@@ -1,3 +1,7 @@
+## Frame
+
+
+
 
 ## Pipeline
 Stores a source DataFrame and a sequence of steps. The >> operator builds or combines pipelines without executing them. Each operation records its name and arguments in a Step.
@@ -18,7 +22,7 @@ Adds or replaces columns using expressions. Evaluates them in order, so later ex
 Creates `groups` as a field to `DataFrame`: a dictionary of columns the dataframe should be grouped by, and an index for the rows that satisfy this condition. All operations that change rows or drop a grouping column clear `groups`. This is all operations except for `derive` and `rename` (this operation also renames the grouping keys).
 
 ### Aggregate:
-Acts on a grouped dataframe, creates one row per group, and adding one column per named aggregation. Missing values are excluded before applying the function. If a group has no valid values, its result is None.
+Acts on a grouped dataframe, creates one row per group, adding one column per named aggregation. Missing values are excluded before applying the function. If a group has no valid values, its result is None.
 
 
 ## Optimization

@@ -22,12 +22,12 @@ def can_move_before(step: Step, prev: Step) -> bool:
             return True
         if prev.kind == "derive":
             _, creates = derive_io(prev)
-            return (not step.args[0].cols_used() & creates
-                    and all(e.is_rowwise() for e in prev.kwargs.values()))
+            return (not step.args[0].cols_used() & creates                  # the filter doesn't read anything the derive creates (not of an empty set)
+                    and all(e.is_rowwise() for e in prev.kwargs.values()))  # and every expression in the derive is row-wise
         return False
 
     if step.kind == "select" and prev.kind in FILTERS:
-        return prev.args[0].cols_used() <= set(step.args)
+        return prev.args[0].cols_used() <= set(step.args)   # True if the columns the filter reads is a subset of the columns the select keeps
 
     if step.kind == "exclude":
         dropped = set(step.args)
@@ -41,7 +41,7 @@ def can_move_before(step: Step, prev: Step) -> bool:
         
 
 def select_before_derive(sel: Step, der: Step) -> Step:
-    """The select to run before `der`"""
+    """Builds the extra select that goes in front of a derive"""
     reads, creates = derive_io(der)
     names = [n for n in sel.args if n not in creates]
     names += sorted(reads - set(names))
