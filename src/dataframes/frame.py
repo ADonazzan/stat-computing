@@ -24,7 +24,7 @@ class DataFrame:
         return df
 
     @classmethod
-    def from_columns (cls, cols: dict[str, Column]):
+    def from_columns(cls, cols: dict[str, Column]):
         columns = list(cols.values())
         colnames = {name: i for i, name in enumerate(cols.keys())}
         schema = [col.data_type for col in columns]

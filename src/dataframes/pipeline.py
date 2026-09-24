@@ -50,7 +50,6 @@ class DataFramePipeline:
         for step in self.steps:
             df = EXECUTORS[step.kind](df, *step.args, **step.kwargs)
         return df
-
     
     def optimize(self, predicates: bool = True, projections: bool = True) -> "DataFramePipeline":
         from dataframes.optimize import push_down, FILTERS, PROJECTIONS

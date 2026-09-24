@@ -284,6 +284,3 @@ def rowwise(fn):
 
 def evaluate(df, expr):
     return expr.evaluate(df)
-
-def optimize(expr):
-    raise NotImplementedError
