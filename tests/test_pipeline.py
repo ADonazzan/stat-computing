@@ -41,11 +41,11 @@ def test_rename_rewrites_grouping(flights):
     assert df2.groups["keys"] == ("airline",)
     assert df.groups["keys"] == ("carrier",)
 
-def test_groupby_then_aggregate(flights):
-    out = (flights >> groupBy("carrier")
-                   >> aggregate(avg=("dep_delay", statistics.mean))).execute()
-    assert out.dims()[1] == 3          # AA, DL, UA
-
 def test_keep_clears_groups(flights):
     out = (flights >> groupBy("carrier") >> keep(c("distance") > 1200)).execute()
     assert not out.groups
+
+def test_groupby_then_aggregate(flights):
+    out = (flights >> groupBy("carrier")
+                   >> aggregate(avg=("dep_delay", statistics.mean))).execute()
+    assert out.dims()[1] == 3
