@@ -9,12 +9,5 @@ wheels/
 # Virtual environments
 .venv
 
-# Data
-data/
-*.csv
-*.parquet
-*.xlsx
-*.db
-
 # Instructions
 data-frames.pdf
