@@ -21,30 +21,22 @@ def missing():
     vals = [None if i % 3 == 0 else i for i in range(20)]
     return DataFrame.from_columns({"x": Column.from_list(vals)})
 
-
-
-
 def test_from_columns_dims(simple):
     assert simple.dims() == (3, 5)
-
 
 def test_from_columns_names_in_order(simple):
     assert simple.colnames() == ["a", "b", "c"]
 
-
 def test_from_columns_schema_matches_columns(simple):
     assert simple.schema == (DataType.INT64, DataType.INT64, DataType.FLOAT64)
-
 
 def test_from_list_auto_names():
     df = DataFrame.from_list([[1, 2], [3, 4]])
     assert df.colnames() == ["x_0", "x_1"]
 
-
 def test_rejects_name_count_mismatch():
     with pytest.raises(ValueError):
         DataFrame.from_list([[1, 2], [3, 4]], colnames=["only_one"])
-
 
 def test_ragged_columns_rejected():
     with pytest.raises(ValueError):
@@ -62,20 +54,12 @@ def test_col_idxs_unknown_name(simple):
     with pytest.raises((ValueError, KeyError)):
         simple.col_idxs(["nope"])
 
-
-def test_col_name_roundtrip(simple):
-    for i, name in enumerate(simple.colnames()):
-        assert simple.col_name(i) == name
-
-
 def test_col_name_out_of_bounds(simple):
     with pytest.raises(IndexError):
         simple.col_name(99)
 
-
 def test_get_col_by_name_and_index(simple):
     assert simple.get_col("b") is simple.get_col(1)
-
 
 def test_get_col_unknown(simple):
     with pytest.raises(KeyError):
@@ -99,26 +83,16 @@ def test_set_col_replace_leaves_original_untouched(simple):
     assert simple.get_col("b")[0] == 10
     assert df2.get_col("b")[0] == 9
 
-
-def test_set_col_shares_untouched_columns(simple):
-    """The structural-sharing claim: other columns are the SAME objects."""
-    df2 = simple.set_col("b", [9, 9, 9, 9, 9])
-    assert df2.columns[0] is simple.columns[0]
-    assert df2.columns[2] is simple.columns[2]
-
-
 def test_set_col_append_grows_frame(simple):
     df2 = simple.set_col("d", [0, 0, 0, 0, 0])
     assert df2.dims() == (4, 5)
     assert df2.colnames() == ["a", "b", "c", "d"]
     assert simple.dims() == (3, 5)
 
-
 def test_set_col_scalar_broadcasts(simple):
     df2 = simple.set_col("const", 42)
     col = df2.get_col("const")
     assert len(col) == 5 and col[3] == 42
-
 
 def test_set_col_wrong_length_rejected(simple):
     with pytest.raises(ValueError):

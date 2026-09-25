@@ -1,13 +1,32 @@
 import pytest
 
-from dataframes.column import Column
-from dataframes.expr import c, evaluate
-from dataframes.frame import DataFrame
+from dataframes import DataFrame, c, evaluate
 
-def test_evaluate_expression():
-    df = DataFrame.from_columns({
-        "a": Column.from_list([1, None, 3]),
-        "t": Column.from_list([2, 3, 4]),
-    })
-    vals, mask = evaluate(df, c("a") * c("t") + 3)
-    assert list(mask) == [True, False, True]
+
+@pytest.fixture
+def df():
+    return DataFrame.from_list(
+        [[1, 2, None, 4], [10, None, 30, 40]],
+        colnames=["a", "b"],
+    )
+
+
+def test_arithmetic_and_null_propagation(df):
+    expr = 100 - c("a") * c("b")
+
+    values, valid = evaluate(df, expr)
+
+    assert valid.tolist() == [True, False, False, True]
+    assert values[valid].tolist() == [90, -60]
+    assert str(expr) == "(100 - (a * b))"
+    assert expr.cols_used() == {"a", "b"}
+    assert expr.is_rowwise()
+
+
+def test_comparison_and_boolean_expression(df):
+    expr = (c("a") > 2) & (c("b") >= 30)
+
+    values, valid = evaluate(df, expr)
+
+    assert valid.tolist() == [True, False, False, True]
+    assert values[valid].tolist() == [False, True]

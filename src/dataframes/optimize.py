@@ -16,7 +16,6 @@ def derive_io(der: Step) -> tuple[set[str], set[str]]:
 
 
 def can_move_before(step: Step, prev: Step) -> bool:
-    """Check if `step` runs before `prev` without changing the result"""
     if step.kind in FILTERS:
         if prev.kind in PROJECTIONS:
             return True

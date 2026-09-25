@@ -107,18 +107,6 @@ class ColumnExpression(ABC):
     def __rtruediv__(self, other):
         return self._reverse_binary(Op.DIV, other)
 
-    def __floordiv__(self, other):
-        return self._binary(Op.FLOOR_DIV, other)
-
-    def __rfloordiv__(self, other):
-        return self._reverse_binary(Op.FLOOR_DIV, other)
-
-    def __mod__(self, other):
-        return self._binary(Op.MOD, other)
-
-    def __rmod__(self, other):
-        return self._reverse_binary(Op.MOD, other)
-
     def __pow__(self, other):
         return self._binary(Op.POW, other)
 

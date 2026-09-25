@@ -1,7 +1,5 @@
 import pytest
 
-from hypothesis import given, strategies as st
-
 from dataframes.column import Column
 from dataframes.dtypes import DataType
 
