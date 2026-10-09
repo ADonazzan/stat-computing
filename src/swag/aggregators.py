@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from operator import add
+from dataclasses import dataclass, replace
+from operator import add, neg
 from typing import Callable, Generic, TypeVar
 
 import numpy as np
@@ -23,17 +23,6 @@ class Agg(Generic[V, A]):
 
 def identity(x: A) -> A:
     return x
-
-
-def basic(monoid: Monoid[A]) -> Agg[A, A]:
-    return Agg(
-        monoid=monoid,
-        annotate=identity,
-        finalize=identity,
-    )
-
-sum_agg = basic(Monoid(0.0))
-concat_agg = basic(Monoid(""))
 
 # mean
 def mean_finalize(a) -> float:
@@ -94,4 +83,42 @@ reg_agg = Agg(
     monoid=Monoid(np.zeros(5)),
     annotate=reg_annotate,
     finalize=reg_finalize,
+)
+
+concat_agg = Agg(
+        monoid=Monoid(""),
+        annotate=identity,
+        finalize=identity,
+    )
+
+sum_agg = Agg(
+        monoid=Monoid(0),
+        annotate=identity,
+        finalize=identity,
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Group(Monoid[A]):
+    inverse: Callable[[A], A]
+
+sum_group_agg = Agg(
+    Group(munit=0.0, inverse=neg),
+    finalize=identity,
+    annotate=identity
+)
+
+mean_group_agg = replace(
+    mean_agg,
+    monoid=Group(munit=np.zeros(2), inverse=neg),
+)
+
+std_group_agg = replace(
+    std_agg,
+    monoid=Group(munit=np.zeros(3), inverse=neg),
+)
+
+reg_group_agg = replace(
+    reg_agg,
+    monoid=Group(munit=np.zeros(5), inverse=neg),
 )

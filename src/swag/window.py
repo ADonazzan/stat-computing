@@ -1,18 +1,17 @@
+
+from collections import deque
 from collections.abc import Iterable, Iterator
 from typing import TypeVar
 
-from swag.aggregators import Agg
+from swag.aggregators import Agg, Group
 from swag.stack import AggStack
-
 
 V = TypeVar("V")
 A = TypeVar("A")
 
 
 def swag_stream(agg: Agg[V, A], window: int, source: Iterable[V]) -> Iterator[V]:
-    if window < 1:
-        raise ValueError("window must be positive")
-    
+
     def generate() -> Iterator[V]:
         front = AggStack(agg.monoid)
         back = AggStack(agg.monoid)
@@ -38,3 +37,27 @@ def swag_stream(agg: Agg[V, A], window: int, source: Iterable[V]) -> Iterator[V]
 
 def swag(agg: Agg[V, A], window: int, source: Iterable[V]) -> list[V]:
     return list(swag_stream(agg, window, source))
+
+
+def swag_group_stream(agg: Agg[V, A], window: int, source: Iterable[V]) -> Iterator[V]:
+    group = agg.monoid
+
+    values: deque[A] = deque()
+    total = group.munit
+
+    for x in source:
+        value = agg.annotate(x)
+
+        if len(values) == window:
+            oldest = values.popleft()
+            total = group.op(group.inverse(oldest), total)
+
+        values.append(value)
+        total = group.op(total, value)
+
+        if len(values) == window:
+            yield agg.finalize(total)
+
+
+def swag_group(agg: Agg[V, A], window: int, source: Iterable[V]) -> list[V]:
+    return list(swag_group_stream(agg, window, source))

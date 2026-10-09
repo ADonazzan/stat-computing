@@ -23,7 +23,7 @@ class AggStack(Generic[A]):
 
     def total(self) -> A:
         if not self.data:
-            return self.monoid.unit
+            return self.monoid.munit
         return self.data[-1].total
 
     def push_back(self, x: A) -> None:
