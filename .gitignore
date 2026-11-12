@@ -16,3 +16,9 @@ data-frames.pdf
 swag.pdf
 streams.pdf
 
+
+# macOS
+.DS_Store
+
+# grep demo output
+matches.txt

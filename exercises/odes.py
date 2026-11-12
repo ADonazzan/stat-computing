@@ -42,7 +42,7 @@ if __name__ == "__main__":
     print("cos(1) ~", at(cos, steps), " exact", math.cos(1))
     print("y(2pi) ~", at(cos, round(2 * math.pi / dt)), " exact 1")
 
-    # y'' = -y' - y (damped), compared with the closed form at t = 1
+    # y'' = -y' - y, compared with the closed form at t = 1
     w = math.sqrt(3) / 2
     exact = math.exp(-0.5) * (math.cos(w) + math.sin(w) / (2 * w))
     print("damped ~", at(solve_diffeq2(-1, -1, 1, 0, dt), steps), " exact", exact)

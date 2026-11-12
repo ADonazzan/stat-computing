@@ -40,3 +40,15 @@ def test_combine():
     assert [take(g, math.inf) for g in take(groups, math.inf)] == [[1, 1], [2], [3, 3]]
     assert take(cumsum(integers_from(1)), 4) == [1, 3, 6, 10]
     assert take(diff(map(lambda x: x * x, integers_from(0))), 4) == [1, 3, 5, 7]
+
+def test_merge():
+    evens, odds = scale(2, integers_from(0)), map(lambda x: 2 * x + 1, integers_from(0))
+    assert take(merge(evens, odds), 6) == [0, 1, 2, 3, 4, 5]
+    assert take(merge(from_seq([1, 4]), from_seq([2, 3, 5])), math.inf) == [1, 2, 3, 4, 5]
+    assert take(merge(from_seq([1, 2]), empty), math.inf) == [1, 2]
+    longest_first = lambda a, b: len(a) >= len(b)
+    assert take(merge(from_seq(["ccc", "a"]), from_seq(["bb"]), longest_first), math.inf) == ["ccc", "bb", "a"]
+
+def test_merge_ties_take_first_stream():
+    s, t = from_seq([(1, "s")]), from_seq([(1, "t")])
+    assert take(merge(s, t, lambda a, b: a[0] <= b[0]), math.inf) == [(1, "s"), (1, "t")]
