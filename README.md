@@ -27,7 +27,7 @@ Operations that are not safe on effectful streams, because they repeat or hide e
 - `is_empty`, which must pull an item;
 - buffering, which runs effects early: `group_by`, `chunked`, `memo`.
 
-## Answers to the exercises
+## Answers to the exercises
 
 ### Folds
 
