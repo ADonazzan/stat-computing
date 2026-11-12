@@ -1,18 +1,19 @@
+import glob
 import operator
 import re
 
-from streams import (Fold, chain, count, display, drain, fold, identity,
-                     integers_from, keep, line_from, lmap, sink, tee, zip_with)
+from streams import (Fold, Region, chain, count, display, drain, fold, identity,
+                     integers_from, interleave, keep, line_from, lmap, sink, tee, zip_with)
 
 
 # grep
-def grep(pattern, paths):
+def grep(pattern, paths, region=None):
     """Stream of (file, line number, line) for lines matching `pattern`."""
     rx = re.compile(pattern)
 
     def matches_in(path):
         numbered = zip_with(lambda n, line: (str(path), n, line),
-                            integers_from(1), line_from(path))
+                            integers_from(1), line_from(path, region))
         return keep(numbered, lambda t: rx.search(t[2]))
 
     return chain(*[matches_in(p) for p in paths])
@@ -51,6 +52,13 @@ if __name__ == "__main__":
     run_grep(r"^def ", ["src/streams/core.py"], filename=False)
     run_grep(r"^def ", ["src/streams/core.py"], out="matches.txt")
     print("wc README.md ->", wc("README.md"))
+
+    # Many files read side by side, never more than two open at a time
+    sources = sorted(glob.glob("src/streams/*.py"))
+    with Region(max_open=2) as region:
+        mixed = interleave(*[line_from(p, region) for p in sources])
+        print(len(sources), "files interleaved,", fold(count, mixed), "lines")
+        fold(drain, display(grep(r"^class ", sources, region), lambda m: f"{m[0]}:{m[1]}:{m[2].rstrip()}"))
 
     try:
         print(take(socket(from_seq(["hello", "streams"])), 5))

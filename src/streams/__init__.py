@@ -10,4 +10,4 @@ from streams.folds import (
     collect, count, drain, dimap, lmap, rmap, defer, resolve, tee,
 )
 from streams.numeric import inject, scale, add, sub, convolve, shuffle, reciprocal, power
-from streams.effects import line_from, display, sink, socket
+from streams.effects import Region, line_from, display, sink, socket
