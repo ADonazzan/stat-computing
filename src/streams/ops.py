@@ -1,4 +1,5 @@
 import math
+import operator
 from collections.abc import Callable, Hashable
 from streams.core import Stream, _MISSING, tail, take
 from streams.primitives import from_seq
@@ -128,6 +129,26 @@ def interleave[A](*streams: Stream[A]) -> Stream[A]:
                     yield v
                     alive.append(it)
             its = alive
+    return Stream(gen)
+
+
+def merge[A](s: Stream[A], t: Stream[A], ordering: Callable[[A, A], bool] = operator.le) -> Stream[A]:
+    def gen():
+        si, ti = iter(s), iter(t)
+        a, b = next(si, _MISSING), next(ti, _MISSING)
+        while a is not _MISSING and b is not _MISSING:
+            if ordering(a, b):
+                yield a
+                a = next(si, _MISSING)
+            else:
+                yield b
+                b = next(ti, _MISSING)
+        if a is not _MISSING:
+            yield a
+            yield from si
+        if b is not _MISSING:
+            yield b
+            yield from ti
     return Stream(gen)
 
 
